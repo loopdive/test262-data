@@ -66,6 +66,13 @@ try {
     try {
       const inst = await WebAssembly.instantiate(result.binary, result.importObject);
       exportsObj = inst.instance ? inst.instance.exports : inst.exports;
+      // Required wiring (js2wasm src/index.ts withImportObject, #1712): without
+      // this, callbackState.getExports() stays undefined and every
+      // exports-backed capability silently breaks — closure dispatch for a
+      // function assigned as a property after declaration (assert.js's
+      // assert.sameValue = function(){} shape), and .then()/.catch() callback
+      // delivery on promises resolved before this is called.
+      result.importObject.__setExports?.(exportsObj);
     } catch (err) {
       console.error(describeThrown(err, null));
       process.exitCode = 1;
