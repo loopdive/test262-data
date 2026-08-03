@@ -17,18 +17,23 @@ export const SUBJECT = (() => {
 })();
 
 // Portable prologue. Notes on what is and is not safe to assume:
-//   - `print` exists in d8/jsshell/jsc/xs/qjs, `console.log` in the rest;
-//     Porffor's runtime.js aliases print to console.log for test262 already.
+//   - Neither printer is universal, and the order matters. `console.log` is
+//     tried FIRST: QuickJS/qjs_ng/XS have no `console` at all and fall through
+//     to `print`, while Porffor has both — but its `print` is a low-level
+//     numeric builtin that swallows strings (`print("yo")` emits `24`), so
+//     preferring `print` there loses the result line entirely. Measured on the
+//     engines in this repo: v8, sm, njs, kiesel, porffor -> console.log;
+//     qjs, qjs_ng, xs -> print.
 //   - `performance.now()` is NOT universal. `Date.now()` is (ES5), but only has
 //     ms resolution — which is why the runner calibrates the repetition count
 //     up to a target of ~200 ms per measurement rather than timing one pass.
 //   - When no clock is usable at all, inner time is reported as -1 and the
 //     runner falls back to the externally measured wall time.
 const PROLOGUE = `var __print = (function () {
-  if (typeof print === 'function') return print;
   if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
     return function (s) { console.log(s); };
   }
+  if (typeof print === 'function') return print;
   return function () {};
 })();
 var __clock = (function () {

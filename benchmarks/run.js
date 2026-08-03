@@ -89,7 +89,12 @@ const exec = (name, source) => {
     ok: !!parsed,
     outer,
     parsed,
-    err: parsed ? null : (combined.trim().split('\n').slice(-4).join('\n') || 'no output')
+    // No marker means the engine never got to the end of the driver — or got
+    // there and mangled the line (Porffor truncates it to `#bench al` on the
+    // allocation case). Say which, and keep the evidence.
+    err: parsed ? null : (combined.trim()
+      ? `no result marker in output: ${combined.trim().split('\n').slice(-4).join(' | ').slice(0, 300)}`
+      : 'no output')
   };
 };
 
@@ -190,6 +195,18 @@ for (const c of cases) {
 
   const calMs = cal.parsed.inner >= 0 ? cal.parsed.inner : Math.max(cal.outer - (startup ?? 0), 0);
   let m = measure(repsFor(calMs));
+
+  // One repetition survived calibration but the full pass did not: on a
+  // memory-limited engine an allocation-heavy case exhausts the heap partway
+  // through (Porffor traps with "memory access out of bounds" on `alloc` at 500
+  // reps, having been fine at 1). Back off rather than reporting the engine as
+  // unable to run the case at all — a number from fewer reps is noisier, but it
+  // is a number, and `reps` in the output says how few.
+  while (m.total == null && m.reps > 1) {
+    const fewer = Math.max(1, Math.floor(m.reps / 4));
+    if (fewer === m.reps) break;
+    m = measure(fewer);
+  }
 
   // The calibration pass ran cold, so on a JIT it overestimates the per-rep cost
   // by an order of magnitude and the real measurement lands well under target.
