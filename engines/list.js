@@ -11,6 +11,7 @@ export default [
   'qjs_ng',
   'hermes',
   'porffor',
+  'porffor_prealpha',
   'boa',
   'libjs',
   // 'engine262',

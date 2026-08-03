@@ -6,5 +6,7 @@ export default (file, module = false) => {
   const args = [ `--compiler=${process.env.FYI_PORFFOR_COMPILER ?? 'tcc'}`, file ];
   if (module) args.push('--module');
 
-  return $$('./porf', args);
+  // FYI_PORFFOR_BIN lets a second Porffor lane (engines/porffor_prealpha)
+  // install its own binary side by side instead of overwriting ./porf.
+  return $$(process.env.FYI_PORFFOR_BIN ?? './porf', args);
 };

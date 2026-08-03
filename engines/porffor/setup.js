@@ -12,27 +12,35 @@ import { $ } from '../../util.js';
 // package.json — HEAD self-reports `pre-alpha N (<sha> <date>)` under a reset
 // version scheme. A clone is also the only path here that measures current
 // upstream rather than a months-old build.
-const shim = command => {
-  fs.writeFileSync('porf', `#!/bin/sh\n${command}\n`);
-  $('chmod +x porf');
+const BIN = process.env.FYI_PORFFOR_BIN ?? './porf';
 
-  // tcc is what run.js asks for by default; without it Porffor's native path
-  // fails outright, so fall back to whatever C compiler this host does have.
-  if (!process.env.FYI_PORFFOR_COMPILER) {
-    for (const candidate of ['tcc', 'clang', 'gcc', 'cc']) {
-      try {
-        $(`command -v ${candidate}`);
-        process.env.FYI_PORFFOR_COMPILER = candidate;
-        break;
-      } catch {}
-    }
-    if (process.env.FYI_PORFFOR_COMPILER !== 'tcc') {
-      console.log(`porffor: tcc not found, using ${process.env.FYI_PORFFOR_COMPILER ?? '(none)'}`);
-    }
+// tcc is what run.js asks for by default; without it Porffor's native path
+// fails outright, so settle on whatever C compiler this host does have. Every
+// install path needs this, prebuilt binary included — the binary is the
+// compiler front end, not a self-contained runtime.
+export const pickCompiler = () => {
+  if (process.env.FYI_PORFFOR_COMPILER) return process.env.FYI_PORFFOR_COMPILER;
+
+  for (const candidate of ['tcc', 'clang', 'gcc', 'cc']) {
+    try {
+      $(`command -v ${candidate}`);
+      process.env.FYI_PORFFOR_COMPILER = candidate;
+      break;
+    } catch {}
   }
 
-  const version = $('./porf --version').trim();
-  return version;
+  if (process.env.FYI_PORFFOR_COMPILER !== 'tcc') {
+    console.log(`porffor: tcc not found, using ${process.env.FYI_PORFFOR_COMPILER ?? '(none)'}`);
+  }
+  return process.env.FYI_PORFFOR_COMPILER;
+};
+
+export const shim = (command, bin = BIN) => {
+  fs.writeFileSync(bin, `#!/bin/sh\n${command}\n`);
+  $(`chmod +x ${bin}`);
+  pickCompiler();
+
+  return $(`${bin} --version`).trim();
 };
 
 const installFromSource = async reason => {
@@ -68,6 +76,8 @@ const fallback = async reason => {
 };
 
 export default async () => {
+  pickCompiler();
+
   if (process.env.FYI_PORFFOR_NPM) return installFromNpm('FYI_PORFFOR_NPM set');
   if (process.env.FYI_PORFFOR_SOURCE) return installFromSource('FYI_PORFFOR_SOURCE set');
 
@@ -78,26 +88,35 @@ export default async () => {
     ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {})
   };
 
-  const releaseResponse = await fetch('https://api.github.com/repos/CanadaHonk/porffor/releases/latest', { headers });
-  if (!releaseResponse.ok) {
-    return fallback(`release API: ${releaseResponse.status} ${releaseResponse.statusText}`);
+  // The API is only consulted for the tag name, and only as a nicety: it needs
+  // a credential and answers 401 on a host whose token is scoped elsewhere.
+  // The asset itself is served unauthenticated from the /releases/latest/
+  // /download/ redirect, so a release lane stays available either way — and
+  // `porf --version` below is the authoritative version string regardless.
+  let tag = null;
+  try {
+    const releaseResponse = await fetch('https://api.github.com/repos/CanadaHonk/porffor/releases/latest', { headers });
+    if (releaseResponse.ok) tag = (await releaseResponse.json()).tag_name ?? null;
+      else console.log(`porffor: release API unavailable (${releaseResponse.status}), downloading the asset directly`);
+  } catch (err) {
+    console.log(`porffor: release API unreachable (${err.message}), downloading the asset directly`);
   }
 
-  const release = await releaseResponse.json();
-  const asset = release.assets.find(x => x.name === assetName);
-  if (!asset) return fallback(`release ${release.tag_name} has no ${assetName} asset`);
-
-  const assetResponse = await fetch(asset.browser_download_url, { headers });
+  const assetResponse = await fetch(`https://github.com/CanadaHonk/porffor/releases/latest/download/${assetName}`, {
+    redirect: 'follow'
+  });
   if (!assetResponse.ok) return fallback(`download: ${assetResponse.status} ${assetResponse.statusText}`);
 
-  fs.rmSync('porf', { force: true });
+  fs.rmSync(BIN, { force: true });
   try {
     await finished(Readable.fromWeb(assetResponse.body).pipe(fs.createWriteStream('porffor.tar.gz')));
-    $('tar -xzf porffor.tar.gz');
+    // the tarball holds a bare `porf`; -O keeps a second lane's BIN distinct
+    $(`tar -xzOf porffor.tar.gz porf > ${BIN}`);
   } finally {
     fs.rmSync('porffor.tar.gz', { force: true });
   }
-  $('chmod +x porf');
+  $(`chmod +x ${BIN}`);
 
-  return { version: $('./porf --version').trim() };
+  const version = $(`${BIN} --version`).trim();
+  return { version: tag ? `${version} [${tag}]` : version };
 };
