@@ -27,6 +27,7 @@ export default async () => {
   const srcDir = import.meta.dirname;
   fs.copyFileSync(join(srcDir, 'server.mjs'), 'js2wasm/server.mjs');
   fs.copyFileSync(join(srcDir, 'client.mjs'), 'js2wasm/client.mjs');
+  fs.copyFileSync(join(srcDir, 'bench-runner.mjs'), 'js2wasm/bench-runner.mjs');
 
   const version = $('cd js2wasm && node_modules/.bin/js2wasm --version').trim();
   return { version };

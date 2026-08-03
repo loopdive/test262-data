@@ -87,8 +87,18 @@ process.once('SIGINT', () => {
   process.exit(0);
 });
 
+// The executor requires the input to live under `<test262Root>/test/` and to
+// carry the engine suffix the shared runner appends. The benchmark lane
+// (benchmarks/run.js) drives this same engine with its own scratch tree and
+// unsuffixed filenames, so both are derived rather than hardcoded:
+// FYI_TEST262_ROOT points at whatever root the caller staged the file under,
+// and the suffix is only claimed when the filename actually has it.
+const test262Root = process.env.FYI_TEST262_ROOT ?? 'test262';
+const target = process.env.FYI_JS2_TARGET ?? 'gc';
+
 export default (file, module = false) => {
   ensureServerRunning();
-  const args = [clientScript, socketPath, 'gc', 'test262', 'js2wasm', file, module ? '1' : '0'];
+  const engineSuffix = file.endsWith('.js2wasm') ? 'js2wasm' : '';
+  const args = [clientScript, socketPath, target, test262Root, engineSuffix, file, module ? '1' : '0'];
   return $$('node', args);
 };

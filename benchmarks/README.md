@@ -68,6 +68,31 @@ Everything runs **serially**. Nothing else should be competing for the machine.
   than measuring the named operation. If a case drifts down there, raise its
   inner iteration count rather than reading the number.
 
+## Engine adapters
+
+Most engines are shells: write a script, run it, read the marker off stdout.
+Some cannot be driven that way at all — js2 is an AOT compiler with no script
+runner, and its conformance adapter reports only pass/fail, deliberately
+discarding program output.
+
+Such an engine ships `engines/<engine>/bench.js` and owns its own timing:
+
+```js
+export const probeStartup = () => ({ ms })            // or { error }
+export default ({ name, sourcePath, source, subject,  // the case
+                  targetMs, rounds, maxReps }) =>     // the budget
+  ({ ms, reps, checksum, timing, compileMs, error })  // per repetition
+```
+
+`benchmarks/run.js` uses the adapter when the file exists and the generic
+driver otherwise. An adapter must still produce the same checksum as every
+other engine — that is what keeps the two paths comparable — and should set
+`timing` to something other than `"inner"` so the report can say how the number
+was obtained. `engines/js2wasm/bench.js` (plus `bench-runner.mjs`) is the
+worked example: it compiles the case to WasmGC, instantiates it, and times an
+exported function from the host, the same shape js2's own cross-engine harness
+uses.
+
 ## Adding a case
 
 1. Write `cases/<name>.js`: plain ES5, define `benchMain()` returning a numeric

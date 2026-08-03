@@ -76,6 +76,9 @@ const generateBench = async () => {
         ms: r.ms,
         reps: r.reps ?? null,
         timing: r.timing ?? null,
+        // adapter-driven engines (AOT compilers) report compile+instantiate
+        // for the case separately from the per-repetition number
+        compileMs: r.compileMs ?? null,
         checksum: r.checksum ?? null,
         // > 1 means slower than the reference engine
         relative: r.ms != null && refMs ? r.ms / refMs : null,

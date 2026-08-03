@@ -8,8 +8,9 @@
 // test262 runner nothing here is parallelised, and the controller runs one
 // engine at a time.
 import fs from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildDriver, buildStartupProbe, parseResult } from './harness.js';
+import { buildDriver, buildStartupProbe, parseResult, SUBJECT } from './harness.js';
 import cases from './cases/index.js';
 
 const arg = process.argv[2];
@@ -57,8 +58,20 @@ const meta = process.env.FYI_BENCH_SKIP_SETUP
 
 const run = (await import(`../engines/${engine}/run.js`)).default;
 
-const scratch = join('bench', arg);
+// Optional per-engine benchmark adapter. An engine that cannot be driven as a
+// shell — an AOT compiler with no script runner, say — ships
+// `engines/<engine>/bench.js` and owns its own timing; see benchmarks/README.md.
+const adapterPath = join(import.meta.dirname, '..', 'engines', engine, 'bench.js');
+const adapterModule = existsSync(adapterPath) ? await import(`../engines/${engine}/bench.js`) : null;
+const adapter = adapterModule?.default ?? null;
+
+// `<root>/test/<name>.js`: engines that resolve a file relative to a test262
+// checkout (js2wasm) need a root to hang the driver off, and it costs the
+// others nothing.
+const benchRoot = join('bench', arg);
+const scratch = join(benchRoot, 'test');
 fs.mkdirSync(scratch, { recursive: true });
+process.env.FYI_TEST262_ROOT = benchRoot;
 
 /** Write `source` to a scratch file, run it, return { ok, outer, parsed, err }. */
 const exec = (name, source) => {
@@ -86,7 +99,11 @@ const exec = (name, source) => {
 // and lets the site show it as a metric in its own right.
 let startup = null;
 let startupError = null;
-{
+if (adapter) {
+  const r = adapterModule.probeStartup?.() ?? { error: 'adapter has no probeStartup' };
+  if (r.error) startupError = r.error;
+    else startup = r.ms;
+} else {
   const probe = buildStartupProbe();
   let best = Infinity;
   for (let i = 0; i <= ROUNDS; i++) {
@@ -109,7 +126,27 @@ const started = performance.now();
 for (const c of cases) {
   if (only.length && !only.includes(c.name)) continue;
 
-  const source = fs.readFileSync(join(import.meta.dirname, 'cases', c.file), 'utf8');
+  const casePath = join(import.meta.dirname, 'cases', c.file);
+  const source = fs.readFileSync(casePath, 'utf8');
+  const maxRepsForCase = c.maxReps ?? 200;
+
+  if (adapter) {
+    const r = await adapter({
+      name: c.name,
+      sourcePath: casePath,
+      source,
+      subject: SUBJECT,
+      targetMs: TARGET_MS,
+      rounds: ROUNDS,
+      maxReps: maxRepsForCase
+    });
+
+    benchmarks[c.name] = r;
+    console.log(r.ms == null
+      ? `${arg} ${c.name}: FAILED (${String(r.error).split('\n')[0]})`
+      : `${arg} ${c.name}: ${r.ms.toFixed(4)}ms/rep (reps=${r.reps}, chk=${r.checksum})`);
+    continue;
+  }
 
   // calibration pass: one repetition, to find out how slow this engine is here
   const cal = exec(c.name, buildDriver(c.name, source, 1));
@@ -119,7 +156,7 @@ for (const c of cases) {
     continue;
   }
 
-  const maxReps = c.maxReps ?? 200;
+  const maxReps = maxRepsForCase;
   const repsFor = perRep => Math.max(1, Math.min(maxReps, Math.round(TARGET_MS / Math.max(perRep, 0.001))));
 
   const measure = reps => {
@@ -181,7 +218,7 @@ for (const c of cases) {
   console.log(`${arg} ${c.name}: ${(m.total / m.reps).toFixed(4)}ms/rep (reps=${m.reps}, chk=${m.checksum})`);
 }
 
-fs.rmSync(scratch, { recursive: true, force: true });
+fs.rmSync(benchRoot, { recursive: true, force: true });
 
 const out = {
   engine: arg,
