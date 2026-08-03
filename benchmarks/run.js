@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildDriver, buildStartupProbe, parseResult, SUBJECT } from './harness.js';
+import { buildDriver, buildStartupProbe, parseResult, loadExtras, SUBJECT } from './harness.js';
 import cases from './cases/index.js';
 
 const arg = process.argv[2];
@@ -131,9 +131,11 @@ const started = performance.now();
 for (const c of cases) {
   if (only.length && !only.includes(c.name)) continue;
 
-  const casePath = join(import.meta.dirname, 'cases', c.file);
+  const casesDir = join(import.meta.dirname, 'cases');
+  const casePath = join(casesDir, c.file);
   const source = fs.readFileSync(casePath, 'utf8');
   const maxRepsForCase = c.maxReps ?? 200;
+  const extras = loadExtras(c, casesDir, (dir, file) => fs.readFileSync(join(dir, file), 'utf8'));
 
   if (adapter) {
     const r = await adapter({
@@ -141,6 +143,8 @@ for (const c of cases) {
       sourcePath: casePath,
       source,
       subject: SUBJECT,
+      prepend: extras.prepend,
+      injects: extras.injects,
       targetMs: TARGET_MS,
       rounds: ROUNDS,
       maxReps: maxRepsForCase
@@ -154,7 +158,7 @@ for (const c of cases) {
   }
 
   // calibration pass: one repetition, to find out how slow this engine is here
-  const cal = exec(c.name, buildDriver(c.name, source, 1));
+  const cal = exec(c.name, buildDriver(c.name, source, 1, extras));
   if (!cal.ok) {
     benchmarks[c.name] = { ms: null, error: cal.err };
     console.log(`${arg} ${c.name}: FAILED (${cal.err.split('\n')[0]})`);
@@ -165,7 +169,7 @@ for (const c of cases) {
   const repsFor = perRep => Math.max(1, Math.min(maxReps, Math.round(TARGET_MS / Math.max(perRep, 0.001))));
 
   const measure = reps => {
-    const driver = buildDriver(c.name, source, reps);
+    const driver = buildDriver(c.name, source, reps, extras);
     let bestInner = Infinity, bestOuter = Infinity, checksum = null, error = null;
 
     for (let i = 0; i < ROUNDS; i++) {

@@ -99,6 +99,22 @@ uses.
    checksum. The global `SUBJECT` (~35 KB of JS source) is available.
 2. Add it to `cases/index.js` with a description and a `maxReps` cap.
 
+A case can also pull in a vendored library and a source text to work on:
+
+```js
+{
+  name: 'acorn-self-parse',
+  file: 'acorn-self-parse.js',
+  prepend: ['vendor/cjs-prelude.js', 'vendor/acorn.js', 'vendor/cjs-postlude.js'],
+  inject: { ACORN_SRC: 'vendor/acorn.js' },
+  maxReps: 20
+}
+```
+
+`prepend` files are concatenated ahead of the case as code; `inject` files
+become string globals. Vendored inputs are checked in rather than fetched, so a
+result is reproducible from the repository alone — see `cases/vendor/`.
+
 Make the inner loop's **input** depend on the loop counter. With a constant
 receiver and constant arguments, an optimising JIT hoists the call out of the
 loop entirely and runs it once — which is how a benchmark comes to report a

@@ -73,6 +73,14 @@ export default [
     maxReps: 200
   },
   {
+    name: 'acorn-self-parse',
+    file: 'acorn-self-parse.js',
+    description: 'acorn 8.18.0 parsing its own 245 KB source — a whole-parser workload',
+    prepend: ['vendor/cjs-prelude.js', 'vendor/acorn.js', 'vendor/cjs-postlude.js'],
+    inject: { ACORN_SRC: 'vendor/acorn.js' },
+    maxReps: 20
+  },
+  {
     name: 'string-split',
     file: 'string-split.js',
     description: 'String.prototype.split — scanning plus parts allocation',

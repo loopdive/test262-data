@@ -10,6 +10,7 @@ export default [
   'qjs',
   'qjs_ng',
   'hermes',
+  'shermes',
   'porffor',
   'porffor_prealpha',
   'boa',

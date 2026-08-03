@@ -17,34 +17,38 @@
 // benchmarks/cross-engine/run-js2.mjs). The loops inside each case are long
 // enough that one call-boundary crossing per repetition is noise.
 //
-// argv: <case-source-path | --probe> <name> <params-json>
+// argv: <case-source-path | --probe> <name> <params-json-file>
 // stdout: one line of JSON.
 import { readFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 
-const [, , sourcePath, name, paramsJson] = process.argv;
-const params = JSON.parse(paramsJson ?? '{}');
+const [, , sourcePath, name, paramsPath] = process.argv;
+const params = paramsPath ? JSON.parse(readFileSync(paramsPath, 'utf8')) : {};
 const targetMs = params.targetMs ?? 200;
 const rounds = params.rounds ?? 3;
 const maxReps = params.maxReps ?? 200;
 const target = params.target ?? 'standalone';
-const subject = params.subject ?? '';
+const injects = { SUBJECT: params.subject ?? '', ...(params.injects ?? {}) };
+const prepend = params.prepend ?? '';
 
 const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
 
-const buildSource = caseSource => {
-  // One 35 KB string literal overflows the compiler's expression recursion, so
-  // the subject is assembled from 4 KB chunks (same workaround js2's own
-  // harness uses).
+// One 35 KB string literal overflows the compiler's expression recursion (and
+// the acorn case injects 245 KB), so every injected source is assembled from
+// 4 KB chunks — the same workaround js2's own harness uses.
+const chunked = (name, text) => {
   const chunks = [];
-  for (let i = 0; i < subject.length; i += 4096) chunks.push(subject.slice(i, i + 4096));
+  for (let i = 0; i < text.length; i += 4096) chunks.push(text.slice(i, i + 4096));
 
-  return `${caseSource}
-const __parts = [${chunks.map(c => JSON.stringify(c)).join(',\n')}];
-const SUBJECT = __parts.join("");
+  return `const __${name}_parts = [${chunks.map(c => JSON.stringify(c)).join(',\n')}];
+const ${name} = __${name}_parts.join("");`;
+};
+
+const buildSource = caseSource => `${Object.entries(injects).map(([k, v]) => chunked(k, v)).join('\n')}
+${prepend}
+${caseSource}
 export function bench() { return benchMain(); }
 `;
-};
 
 const instantiate = async (js2, source) => {
   const result = await js2.compile(source, {

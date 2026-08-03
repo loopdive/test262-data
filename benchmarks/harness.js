@@ -59,9 +59,31 @@ var __t1 = __now();
 __print('${MARKER} ${name} inner=' + (__clock === null ? -1 : (__t1 - __t0)) + ' reps=${reps} chk=' + __chk);
 `;
 
-/** Full driver source for one case at one repetition count. */
-export const buildDriver = (name, source, reps) =>
-  `${PROLOGUE}var SUBJECT = ${JSON.stringify(SUBJECT)};\n\n${source}\n${epilogue(name, reps)}`;
+/**
+ * Full driver source for one case at one repetition count.
+ *
+ * `extras.prepend` is code the case needs in scope (a vendored library);
+ * `extras.injects` are source texts the case reads as globals. SUBJECT is
+ * always injected; a case can add its own (acorn-self-parse injects the acorn
+ * source it parses).
+ */
+export const buildDriver = (name, source, reps, extras = {}) => {
+  const injects = { SUBJECT, ...(extras.injects ?? {}) };
+  const declarations = Object.entries(injects)
+    .map(([key, text]) => `var ${key} = ${JSON.stringify(text)};`)
+    .join('\n');
+
+  return `${PROLOGUE}${declarations}\n\n${extras.prepend ?? ''}\n${source}\n${epilogue(name, reps)}`;
+};
+
+/** Read a case's `prepend` / `inject` manifest entries off disk. */
+export const loadExtras = (caseDef, casesDir, readFile) => {
+  const prepend = (caseDef.prepend ?? []).map(readFile.bind(null, casesDir)).join('\n');
+  const injects = {};
+  for (const [key, file] of Object.entries(caseDef.inject ?? {})) injects[key] = readFile(casesDir, file);
+
+  return { prepend, injects };
+};
 
 /** Script that does nothing but print — measures process startup cost. */
 export const buildStartupProbe = () =>
