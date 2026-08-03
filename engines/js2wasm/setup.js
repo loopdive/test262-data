@@ -18,11 +18,20 @@ import { $ } from '../../util.js';
 // lookup, which walks up from the IMPORTING FILE's own location on disk —
 // engines/js2wasm/ has no node_modules ancestor with @loopdive/js2 installed,
 // only this working directory's js2wasm/node_modules/ does.
+// FYI_JS2_SOURCE points at a js2 checkout with `dist/` already built
+// (`pnpm run build`). The npm release can lag main by a lot — measured
+// 2026-08-03, `array/sort` was 95x FASTER from source than from
+// @loopdive/js2@0.67.0, because the O(n log n) comparator sort had not been
+// published yet — so a benchmark run against npm can misreport the compiler
+// by two orders of magnitude on a single case. Conformance keeps using the
+// release (that is what users get); benchmarks want the option of both.
 export default async () => {
-  console.log('installing js2wasm...');
+  const source = process.env.FYI_JS2_SOURCE;
+
+  console.log(source ? `installing js2wasm from ${source}...` : 'installing js2wasm...');
   $('rm -rf js2wasm');
   $('mkdir js2wasm');
-  $('cd js2wasm && npm install @loopdive/js2@latest');
+  $(`cd js2wasm && npm install ${source ? source : '@loopdive/js2@latest'}`);
 
   const srcDir = import.meta.dirname;
   fs.copyFileSync(join(srcDir, 'server.mjs'), 'js2wasm/server.mjs');
@@ -30,5 +39,13 @@ export default async () => {
   fs.copyFileSync(join(srcDir, 'bench-runner.mjs'), 'js2wasm/bench-runner.mjs');
 
   const version = $('cd js2wasm && node_modules/.bin/js2wasm --version').trim();
-  return { version };
+  if (!source) return { version };
+
+  let sha = '';
+  try {
+    sha = ` (${$(`git -C ${source} rev-parse --short HEAD`).trim()})`;
+  } catch {
+    // not a git checkout — the version alone will have to identify it
+  }
+  return { version: `${version}${sha} [source]` };
 };

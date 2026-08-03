@@ -131,5 +131,8 @@ dead-code elimination, not loop-invariant code motion.
 | `FYI_BENCH_TIMEOUT`      | `300000`                                   | per-process timeout, ms              |
 | `FYI_BENCH_REFERENCE`    | `v8`                                       | engine the `relative` column is against |
 | `FYI_BENCH_SKIP_SETUP`   | unset                                      | reuse an already-downloaded engine   |
+| `FYI_JS2_SOURCE`         | unset                                      | build the js2 lane from a checkout (with `dist/` built) instead of npm |
+| `FYI_JS2_TARGET`         | `standalone`                               | js2 backend for the benchmark lane (`standalone` or `gc`) |
+| `FYI_PORFFOR_NPM` / `FYI_PORFFOR_SOURCE` | unset                      | force the Porffor install path            |
 | `FYI_BENCH_HISTORY_URL`  | `https://data.test262.fyi/bench-history.json` | existing history to append to     |
 | `FYI_WORKDIR`            | `.test262-fyi`                             | working directory                    |
