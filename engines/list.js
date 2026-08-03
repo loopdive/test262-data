@@ -17,5 +17,6 @@ export default [
   'xs',
   'njs',
   'kiesel',
-  'nova'
+  'nova',
+  'js2wasm'
 ];

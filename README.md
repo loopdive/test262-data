@@ -18,6 +18,7 @@ Independent daily [test262](https://github.com/tc39/test262) (standard test suit
 - [X] Porffor <small>[site](https://porffor.dev)</small> <small>[source](https://github.com/CanadaHonk/porffor)</small>
 - [x] Nova <small>[site](https://trynova.dev)</small> <small>[source](https://github.com/trynova/nova)</small>
 - [X] NJS <small>[site](https://nginx.org/en/docs/njs/)</small> <small>[source](https://github.com/nginx/njs)</small>
+- [X] js2 (JS/TS-to-WasmGC AOT compiler) <small>[site](https://js2.loopdive.com)</small> <small>[source](https://github.com/loopdive/js2)</small>
 - [ ] Bali <small>[source](https://github.com/ferus-web/bali)</small>
 - Request more in GitHub issues!
 
