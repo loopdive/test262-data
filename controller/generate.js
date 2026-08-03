@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import read from '../runner/read.js';
 import { $ } from '../util.js';
 import systemInfo from './system-info.js';
+import cumulativeEditions from './editions.js';
 
 const dataDir = 'deploy';
 const results = {}, versions = {}, times = {};
@@ -429,7 +430,10 @@ const generate = async () => {
       revision: test262Rev
     },
     features: Object.fromEntries(featureResults),
-    editions: editionResults
+    editions: editionResults,
+    // running totals through each edition — "how much of the language up to
+    // and including ES20xx works", see editions.js
+    editionsCumulative: cumulativeEditions({ engines: versions, editions: editionResults })
   }));
 
   let history;
