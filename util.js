@@ -17,7 +17,9 @@ export const $$ = (cmd, args, env = {}) => {
       NO_COLOR: 1,
       ...env
     },
-    timeout: 10000
+    // benchmarks/ raises this: a calibrated benchmark pass is allowed to take
+    // far longer than a single test262 file.
+    timeout: Number(process.env.FYI_TIMEOUT) || 10000
   });
 
   return {

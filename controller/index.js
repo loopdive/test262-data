@@ -4,6 +4,8 @@ import process from 'node:process';
 import { join } from 'node:path';
 import { $ } from '../util.js';
 import generate from './generate.js';
+import benchmark from './bench.js';
+import engines from '../engines/list.js';
 import * as OOMKiller from './oom-killer.js';
 
 // setup working directory
@@ -11,28 +13,10 @@ const workingDir = join(import.meta.dirname, '..', '.test262-fyi');
 if (!fs.existsSync(workingDir)) fs.mkdirSync(workingDir);
 process.chdir(workingDir);
 
-const engines = [
-  'jsc',
-  'jsc_exp',
-  'v8',
-  'v8_exp',
-  'sm',
-  'sm_exp',
-  'qjs',
-  'qjs_ng',
-  'hermes',
-  'porffor',
-  'boa',
-  'libjs',
-  // 'engine262',
-  'xs',
-  'njs',
-  'kiesel',
-  'nova'
-];
-
 let queue = process.argv[2]?.split(',').map(x => x.trim()).filter(x => x);
-if (queue == null || queue.length === 0) queue = engines;
+if (queue == null || queue.length === 0) queue = [...engines]; // copy: the queue is drained below
+
+const requested = [...queue];
 
 if (!process.env.GITHUB_TOKEN) throw new Error('GITHUB_TOKEN is required');
 
@@ -68,6 +52,11 @@ try {
 }
 
 await generate();
+
+// microbenchmarks (opt-in): timing runs are serial and add wall time, so they
+// only happen when explicitly asked for. Must come after generate(), which
+// creates the deploy directory this writes into.
+if (process.env.FYI_BENCH) await benchmark(requested);
 
 for (const file of fs.readdirSync(workingDir)) {
   if (['results', 'deploy', 'test262'].includes(file)) continue;

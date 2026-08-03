@@ -1,48 +1,12 @@
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
-import os from 'node:os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import read from '../runner/read.js';
 import { $ } from '../util.js';
+import systemInfo from './system-info.js';
 
 const dataDir = 'deploy';
 const results = {}, versions = {}, times = {};
-
-const cleanCpu = cpu => cpu
-  ?.replace(/^Apple /, '')
-  .replace(/\s+\d+-Core Processor$/i, '')
-  .replace(/\s+/g, ' ')
-  .trim();
-
-const linuxName = () => {
-  try {
-    const fields = Object.fromEntries(readFileSync('/etc/os-release', 'utf8')
-      .split('\n')
-      .filter(line => line.includes('='))
-      .map(line => {
-        const [key, ...value] = line.split('=');
-        return [key, value.join('=').replace(/^"|"$/g, '')];
-      }));
-
-    return fields.PRETTY_NAME ?? fields.NAME;
-  } catch {
-    return 'Linux';
-  }
-};
-
-const systemInfo = () => {
-  const cpu = cleanCpu(os.cpus()[0]?.model);
-
-  if (process.platform === 'darwin') {
-    const version = $('sw_vers -productVersion').trim() || os.release();
-    return `macOS ${version}${cpu ? ` with ${cpu}` : ''}`;
-  }
-
-  if (process.platform === 'linux') {
-    const name = linuxName();
-    return `${name} ${process.arch}${cpu ? ` with ${cpu}` : ''}`;
-  }
-};
 
 const generate = async () => {
   const test262Rev = $(`git -C test262 rev-parse HEAD`).trim().slice(0, 7);

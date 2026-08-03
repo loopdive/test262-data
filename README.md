@@ -32,6 +32,14 @@ Independent daily [test262](https://github.com/tc39/test262) (standard test suit
 - [X] JSC with experimental opts
 - [ ] Stable versions of engines
 
+## Microbenchmarks
+Cross-engine performance microbenchmarks (ported from [js2](https://github.com/loopdive/js2)) run on the same engines as the conformance suite — same script, checksum-verified, one engine at a time. See [`benchmarks/`](benchmarks/README.md).
+
+```bash
+node controller/bench.js          # all engines -> deploy/bench.json
+node benchmarks/run.js v8         # just one
+```
+
 ## Features to do
 - Preview test262 PRs (changes only)
 - Data/graph over time
