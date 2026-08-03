@@ -75,8 +75,8 @@ export default [
   {
     name: 'acorn-self-parse',
     file: 'acorn-self-parse.js',
-    description: 'acorn 8.18.0 parsing its own 245 KB source — a whole-parser workload',
-    prepend: ['vendor/cjs-prelude.js', 'vendor/acorn.js', 'vendor/cjs-postlude.js'],
+    description: 'acorn 8.18.0 parsing its own 233 KB source — a whole-parser workload',
+    prepend: ['vendor/acorn.js', 'vendor/acorn-ns.js'],
     inject: { ACORN_SRC: 'vendor/acorn.js' },
     maxReps: 20
   },

@@ -105,7 +105,7 @@ A case can also pull in a vendored library and a source text to work on:
 {
   name: 'acorn-self-parse',
   file: 'acorn-self-parse.js',
-  prepend: ['vendor/cjs-prelude.js', 'vendor/acorn.js', 'vendor/cjs-postlude.js'],
+  prepend: ['vendor/acorn.js', 'vendor/acorn-ns.js'],
   inject: { ACORN_SRC: 'vendor/acorn.js' },
   maxReps: 20
 }
